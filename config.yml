@@ -1,4 +1,5 @@
-%YAML:1.0
+%YAML 1.2
+---
 rotationDegrees: 0
 cannyThreshold1: 100
 cannyThreshold2: 200
