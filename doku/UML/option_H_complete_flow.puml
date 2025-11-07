@@ -1,0 +1,277 @@
+@startuml option_H_complete_flow
+!theme cerulean-outline
+title Complete Flow Diagram - Option -H (HDR Mode)\nHigh Dynamic Range Imaging for Enhanced Image Quality
+skinparam defaultFontName Consolas
+skinparam defaultFontSize 11
+skinparam activity {
+  FontColor Black
+  BorderColor DarkBlue
+  BackgroundColor LightCyan
+}
+skinparam note {
+  FontSize 10
+  BackgroundColor Wheat
+}
+
+start
+
+:=== CAMERA INITIALIZATION ===;
+:Check Camera Availability;
+note right
+Test rpicam-still availability
+Fallback to V4L2 if needed
+end note
+
+if (Option -H specified?) then (yes)
+  :Enable HDR Mode;
+  note right
+  **HDR Parameters:**
+  • useHdri = true
+  • Enhanced capture settings
+  • Native resolution capture
+  end note
+else (no)
+  :Standard Mode;
+  note right: Regular camera settings
+endif
+
+:=== IMAGE CAPTURE PHASE ===;
+
+if (HDR Mode enabled?) then (yes)
+  :=== HDR IMAGE ACQUISITION ===;
+  
+  :Configure HDR Parameters;
+  note right
+  **rpicam-still HDR Settings:**
+  • --hdr auto (automatic HDR)
+  • --zsl (Zero Shutter Lag)
+  • --timeout 3000ms (extended for HDR)
+  • --autofocus-on-capture 1
+  end note
+  
+  :Set Enhanced Focus Parameters;
+  note right
+  **Autofocus Configuration:**
+  • --autofocus-mode auto
+  • --autofocus-range normal
+  • --autofocus-speed normal
+  • Precise focus before each shot
+  end note
+  
+  :Set Image Quality Parameters;
+  note right
+  **Quality Enhancement:**
+  • --sharpness 1.8 (increased)
+  • --contrast 1.3 (enhanced)
+  • --quality 98 (maximum JPEG quality)
+  • No explicit resolution (use native)
+  end note
+  
+  :Execute HDR Capture;
+  note right
+  rpicam-still captures multiple exposures
+  Automatic tone mapping and fusion
+  High native resolution output
+  end note
+  
+  :Capture Multiple Exposures;
+  note right
+  **HDR Process:**
+  • Underexposed frame (dark areas)
+  • Normal exposure (mid-tones)
+  • Overexposed frame (bright areas)
+  • Automatic exposure bracketing
+  end note
+  
+  :Tone Mapping & Fusion;
+  note right
+  **HDR Algorithm:**
+  • Combine multiple exposures
+  • Preserve detail in shadows/highlights
+  • Enhance dynamic range
+  • Reduce noise through averaging
+  end note
+  
+  :Read High-Resolution HDR Image;
+  note right
+  **Native Resolution:**
+  • Typical: 4608x2592 (12MP)
+  • Full sensor readout
+  • Enhanced bit depth processing
+  end note
+  
+  :Apply Supersampling Downscale;
+  note right
+  **Quality Enhancement:**
+  cv::resize(originalImg, _img, Size(640,480))
+  • Anti-aliasing through downscaling
+  • Noise reduction
+  • Enhanced edge definition
+  • Better digit clarity
+  end note
+  
+else (no)
+  :=== STANDARD IMAGE ACQUISITION ===;
+  
+  :Configure Standard Parameters;
+  note right
+  **Standard rpicam Settings:**
+  • --timeout 2500ms
+  • --width 640 --height 480
+  • Standard autofocus
+  • Normal quality settings
+  end note
+  
+  :Capture Standard Image;
+  note right
+  Single exposure at target resolution
+  Faster capture process
+  end note
+  
+  :Read Standard Resolution Image;
+  note right: Direct 640x480 capture
+endif
+
+:=== IMAGE QUALITY VALIDATION ===;
+:Check Image Integrity;
+note right
+Verify image loaded successfully
+Check for empty or corrupted frames
+end note
+
+if (Image valid?) then (yes)
+  :Log Capture Success;
+  note right
+  **Success Metrics:**
+  • Final image size: 640x480
+  • Processing mode (HDR/Standard)
+  • Capture quality indicators
+  • Timing information
+  end note
+else (no)
+  :Handle Capture Failure;
+  note right
+  Log error details
+  Attempt recovery strategies
+  end note
+  stop
+endif
+
+:=== POST-CAPTURE PROCESSING ===;
+if (HDR Mode used?) then (yes)
+  :Apply HDR Post-Processing;
+  note right
+  **HDR Benefits Applied:**
+  • Superior shadow/highlight detail
+  • Reduced over/under-exposure
+  • Enhanced digit contrast
+  • Noise reduction from supersampling
+  end note
+else (no)
+  :Standard Processing;
+endif
+
+:Save Debug Copy (if enabled);
+note right
+Save processed image for analysis
+Include HDR/Standard mode in filename
+end note
+
+:=== ENHANCED IMAGE OUTPUT ===;
+:Output High-Quality Image;
+note right
+**Quality Improvements (HDR):**
+• Better dynamic range
+• Enhanced digit visibility
+• Reduced lighting artifacts
+• Improved edge definition
+• Superior noise characteristics
+end note
+
+:=== DIGIT PROCESSING CONTINUATION ===;
+:Continue with Standard Pipeline;
+note right
+**Enhanced Input Benefits:**
+• Better edge detection quality
+• More reliable contour detection  
+• Improved OCR accuracy
+• Robust performance in difficult lighting
+end note
+
+:Apply Perspective Correction;
+note right
+**HDR Advantage:**
+Enhanced corner/edge detection
+Better geometric accuracy
+end note
+
+:Convert to Grayscale;
+note right
+**HDR Advantage:**
+Superior tonal gradation
+Better contrast preservation
+end note
+
+:Generate Canny Edges;
+note right
+**HDR Advantage:**
+• Cleaner edge detection
+• Less noise artifacts
+• Better digit boundary definition
+• More consistent thresholds
+end note
+
+:Find & Filter Contours;
+note right
+**HDR Advantage:**
+More stable contour detection
+Better noise rejection
+end note
+
+:Extract Digit Regions;
+note right
+**HDR Advantage:**
+Improved digit segmentation
+Better background separation
+end note
+
+:Apply OCR Recognition;
+note right
+**HDR Advantage:**
+• Higher recognition accuracy
+• Better character definition
+• Reduced misreads
+• More consistent results
+end note
+
+:=== QUALITY ASSESSMENT ===;
+:Evaluate Recognition Quality;
+note right
+**HDR Quality Metrics:**
+• Recognition confidence scores
+• Edge quality indicators
+• Noise level assessment
+• Lighting condition analysis
+end note
+
+:Output Final Result;
+note right
+**HDR Enhanced Output:**
+• Higher accuracy readings
+• Better reliability in poor lighting
+• Reduced manual verification needs
+• Consistent performance across conditions
+end note
+
+:Log HDR Performance Data;
+note right
+**Performance Tracking:**
+• Capture timing (HDR vs Standard)
+• Quality improvement metrics
+• Recognition success rates
+• Error reduction statistics
+end note
+
+stop
+
+@enduml

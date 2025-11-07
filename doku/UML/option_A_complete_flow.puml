@@ -1,0 +1,278 @@
+@startuml option_A_complete_flow
+!theme cerulean-outline
+title Complete Flow Diagram - Option -A (AOI Enabled)\nArea of Interest Prediction & Smart Fragment Filtering
+skinparam defaultFontName Consolas
+skinparam defaultFontSize 11
+skinparam activity {
+  FontColor Black
+  BorderColor DarkBlue
+  BackgroundColor LightCyan
+}
+skinparam note {
+  FontSize 10
+  BackgroundColor Wheat
+}
+
+start
+
+:=== INPUT PROCESSING ===;
+:Read Input Image;
+note right: Original image from camera/file
+
+:Convert to Grayscale;
+note right: cv::cvtColor(CV_BGR2GRAY)
+
+:=== PERSPECTIVE & ROTATION CORRECTION ===;
+:Apply Perspective Correction;
+note right
+**perspectiveHeightTolerance: 1.3**
+Correct camera angle distortion
+end note
+
+:Correct Rotation & Skew;
+note right
+Align digits horizontally
+Remove rotational artifacts
+end note
+
+:=== DIGIT DETECTION PHASE ===;
+:Generate Canny Edges;
+note right
+**cannyThreshold1: 150**
+**cannyThreshold2: 300**
+Detect digit boundaries
+end note
+
+:Find Contours;
+note right
+cv::findContours()
+Filter by **digitMinWidth: 5**
+end note
+
+:Sort Contours by X-Position;
+note right: Left-to-right order
+
+:=== SMART ANALYSIS PHASE ===;
+:Analyze Digit Spacing;
+note right
+Calculate average spacing between digits
+Check regularity with **smartSpacingTolerance: 0.5**
+end note
+
+:Analyze Digit Sizes;
+note right
+Calculate average width/height
+Check uniformity with **smartSizeTolerance: 0.3**
+end note
+
+if (Regular spacing AND similar sizes?) then (yes)
+  :Enable Smart Processing;
+  :Calculate Average Spacing;
+  note right
+  avgSpacing = Σ(spacing) / (digitCount - 1)
+  Used for AOI prediction
+  end note
+  
+  :Predict 7th Digit Position (AOI);
+  note right
+  **AOI Prediction Formula:**
+  • predictedX = lastDigit.x + avgSpacing
+  • predictedY = lastDigit.y
+  • predictedWidth = avgWidth
+  • predictedHeight = avgHeight
+  end note
+else (no)
+  :Disable AOI Processing;
+  note left: Fall back to 6-digit processing
+endif
+
+:=== AOI VALIDATION PHASE ===;
+if (AOI prediction enabled?) then (yes)
+  :Check Edge Density at AOI;
+  note right
+  Count edge pixels in predicted AOI region
+  Compare with **aoiEdgeDensityThreshold**
+  end note
+  
+  if (Sufficient edges in AOI?) then (yes)
+    :Confirm 7th Digit Presence;
+    :Add AOI as 7th Digit;
+    note right
+    Create virtual digit contour
+    Mark as AOI digit for special processing
+    end note
+  else (no)
+    :AOI Validation Failed;
+    note right: Process only 6 detected digits
+  endif
+else (no)
+  :Process 6 Digits Only;
+endif
+
+:=== DIGIT EXTRACTION PHASE ===;
+
+partition "For each detected digit (including AOI)" {
+  
+  if (Is AOI digit?) then (yes)
+    :Apply AOI Cropping Parameters;
+    note right
+    **AOI-Specific Parameters:**
+    • cropPercentHorizontalAOI: **15%**
+    • cropPercentVerticalAOI: **2%**
+    • More aggressive cropping for better OCR
+    end note
+  else (no)
+    :Apply Standard Cropping;
+    note right
+    **Standard Parameters:**
+    • cropPercentHorizontal: **10%**
+    • cropPercentVertical: **2%**
+    end note
+  endif
+
+  :Extract Digit ROI;
+
+  :=== MORPHOLOGICAL FILTERING (Option -A) ===;
+  
+  :Step 1: Calculate Kernel Size;
+  note right
+  kernelSize = min(width,height) / **morphKernelSizeDivisor (15)**
+  Create elliptical structuring element
+  end note
+  
+  :Step 2: Dilate Image;
+  note right
+  cv::dilate() with calculated kernel
+  Connect broken segments
+  end note
+  
+  :Step 3: Find Dilated Contours;
+  note right
+  Find all contours in dilated image
+  Calculate areas for size comparison
+  end note
+  
+  :Step 4: Sort by Area (Descending);
+  
+  :=== SMART FRAGMENT FILTERING ===;
+  
+  if (Multiple contours found?) then (yes)
+    if (Two large contours with similar size?) then (yes)
+      :Check Size Ratio;
+      note right
+      sizeRatio = secondMaxArea / maxArea
+      Compare with **morphSizeRatioThreshold (0.4)**
+      end note
+      
+      if (Size ratio > threshold?) then (yes)
+        :Keep Both Large Contours;
+        note right
+        Handle complex digits (0, 6, 8, 9)
+        Multiple enclosed areas valid
+        end note
+      else (no)
+        :Keep Only Largest Contour;
+        note right
+        Simple digit shape (1, 2, 3, 4, 5, 7)
+        Remove small fragments
+        end note
+      endif
+    else (no)
+      :Keep Only Largest Contour;
+      note right
+      Clear size difference
+      Classic fragment filtering
+      end note
+    endif
+  else (no)
+    :Process Single Contour;
+  endif
+  
+  :Create Final Mask;
+  note right
+  Fill selected contour(s)
+  Apply mask to original digit ROI
+  end note
+  
+  :Step 5: Erode Back to Original Size;
+  note right
+  cv::erode() with same kernel
+  Restore original digit thickness
+  Remove dilation artifacts
+  end note
+  
+  :=== AOI-SPECIFIC POST-PROCESSING ===;
+  
+  if (Is AOI digit?) then (yes)
+    :Apply Additional Noise Filtering;
+    note right
+    **AOI Enhancement:**
+    • Extra morphological closing
+    • Small fragment removal
+    • Edge enhancement for better OCR
+    end note
+    
+    :Validate AOI Quality;
+    note right
+    Check processed digit quality
+    Ensure sufficient pixel density
+    end note
+  else (no)
+    :Standard Post-Processing;
+  endif
+  
+  :Output Processed Digit;
+  
+}
+
+:=== OCR RECOGNITION PHASE ===;
+partition "For each processed digit" {
+  if (Is AOI digit?) then (yes)
+    :Apply AOI-Optimized OCR;
+    note right
+    **AOI OCR Settings:**
+    • Higher sensitivity thresholds
+    • Specialized training data weighting
+    • Confidence boost for predicted position
+    end note
+  else (no)
+    :Apply Standard OCR;
+    note right: KNearest algorithm with standard parameters
+  endif
+}
+
+:=== OUTPUT GENERATION ===;
+:Combine Recognition Results;
+note right
+Merge 6 standard digits + AOI digit (if valid)
+Generate 7-digit reading
+end note
+
+:Apply Plausibility Check;
+note right
+**Plausi Parameters:**
+• Check digit consistency
+• Validate reading against history
+• Flag suspicious values
+end note
+
+if (Plausibility check passed?) then (yes)
+  :Output Final Reading;
+  note right: 7-digit meter value with confidence
+else (no)
+  :Flag as Suspicious;
+  note right: Require manual validation
+endif
+
+:Log Debug Information;
+note right
+**Debug Outputs:**
+• AOI prediction accuracy
+• Edge density analysis
+• Fragment filtering statistics
+• Recognition confidence scores
+end note
+
+stop
+
+@enduml

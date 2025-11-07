@@ -1,0 +1,231 @@
+@startuml OptionC_Complete_Flow
+!theme cerulean-outline
+title Option -C Complete Flow Diagram (Smart Fragment Filtering + Enclosed Area Detection)
+
+start
+:Input Image;
+
+:Convert to Grayscale;
+note right: cvtColor(_img, _imgGray, COLOR_BGR2GRAY)
+
+if (Perspective Correction available?) then (yes)
+  :Apply Perspective Correction;
+  note right: correctPerspective() using homography
+else (no)
+endif
+
+:Initial Rotation;
+note right: rotate(_config.getRotationDegrees())
+
+:Detect and Correct Skew;
+note right: detectSkew() and rotate(skew_deg)
+
+:=== DIGIT DETECTION PHASE ===;
+
+:Generate Canny Edges;
+note right: cannyEdges() with thresholds
+
+:Find All Contours;
+note right: cv::findContours(RETR_EXTERNAL)
+
+:Filter Contours by Size;
+note right
+**Configurable Parameters:**
+• digitMinWidth: **5** pixels
+• perspectiveHeightTolerance: **1.3**
+• digitMinHeight/MaxHeight
+end note
+
+:Extract Bounding Boxes;
+
+if (Sufficient digits found?) then (no)
+  stop
+else (yes)
+endif
+
+:=== SMART FRAGMENT FILTERING ===;
+
+:Analyze Digit Spacing;
+note right
+Calculate average spacing between digits
+Check regularity with **smartSpacingTolerance: 0.5**
+end note
+
+:Analyze Digit Sizes;
+note right
+Calculate average width/height
+Check uniformity with **smartSizeTolerance: 0.3**
+end note
+
+if (Regular spacing AND similar sizes?) then (yes)
+  :Enable Smart Processing;
+  :Predict 7th Digit Position (AOI);
+  note right: Use average spacing for prediction
+else (no)
+  :Standard Processing Only;
+endif
+
+:=== DIGIT EXTRACTION PHASE ===;
+
+partition "For each detected digit" {
+  
+  if (Is AOI digit?) then (yes)
+    :Apply AOI Cropping;
+    note right
+    **AOI Parameters:**
+    • cropPercentHorizontalAOI: **15%**
+    • cropPercentVerticalAOI: **2%**
+    end note
+  else (no)
+    :Apply Standard Cropping;
+    note right
+    **Standard Parameters:**
+    • cropPercentHorizontal: **10%**
+    • cropPercentVertical: **2%**
+    end note
+  endif
+
+  :Extract Digit ROI;
+
+  if (Crop Digits enabled (-C)?) then (yes)
+    :=== MORPHOLOGICAL FILTERING ===;
+    
+    :Step 1: Calculate Kernel Size;
+    note right
+    kernelSize = min(width,height) / **morphKernelSizeDivisor (15)**
+    Create elliptical structuring element
+    end note
+    
+    :Step 2: Dilate Image;
+    note right
+    cv::dilate() with **morphIterations (1)**
+    Merges nearby edges and fragments
+    end note
+    
+    :Step 3: Find Contours in Dilated Image;
+    note right: Identify all connected components
+    
+    if (Number of contours?) then (0 contours)
+      :Return Original;
+    elseif (1 contour) then (1 contour)
+      :Apply Erosion Only;
+      note right: Restore original thickness
+    else (Multiple contours)
+      
+      :=== ENCLOSED AREA DETECTION ===;
+      
+      if (enclosedAreaDetection enabled?) then (yes)
+        partition "Enhanced Contour Analysis" {
+          :Calculate Contour Areas;
+          
+          :For each contour: Analyze Enclosed Areas;
+          note right
+          **Configurable Parameter:**
+          • minHoleAreaRatio: **0.02 (2%)**
+          
+          **Process:**
+          1. Create contour mask
+          2. Find inner contours (holes)
+          3. Count significant holes > minHoleAreaRatio
+          4. Mark contours with enclosed areas
+          end note
+          
+          :Intelligent Fragment Filtering;
+          note right
+          **Priority System:**
+          1. **Highest**: Contours with enclosed areas ✅
+          2. **Medium**: Large contours without holes ⚠️
+          3. **Lowest**: Small contours without structure ❌
+          
+          **Logic:**
+          - hasEnclosedAreas[i] → Keep (0,4,6,8,9,A,B,etc.)
+          - areaRatio > morphSizeRatioThreshold → Keep as fallback
+          - Small fragments → Reject
+          end note
+        }
+      else (no)
+        :Simple Size-Based Filtering;
+        note right
+        **Fallback Logic:**
+        Keep only largest contour
+        (Classic Smart Fragment Filtering)
+        end note
+      endif
+      
+      :Find Largest and 2nd Largest Areas;
+      
+      :Check Size Ratio;
+      note right
+      sizeRatio = secondMaxArea / maxArea
+      Compare with **morphSizeRatioThreshold (0.4)**
+      end note
+      
+      if (Multiple valid contours with similar sizes?) then (yes)
+        :Keep All Valid Contours;
+        note right
+        Handle complex digits (0, 6, 8, 9)
+        Apply erosion to all contours
+        end note
+      else (no)
+        :Create Mask with Valid Contours;
+        note right
+        Draw selected contours to mask
+        Apply mask to dilated image
+        end note
+      endif
+      
+      :Step 4: Erode Result;
+      note right
+      cv::erode() with **morphIterations (1)**
+      Restore original edge thickness
+      end note
+    endif
+    
+    :Filtered Digit Image;
+  else (no)
+    :Original Digit Image;
+  endif
+
+  :Add to Digit Vector;
+  
+  if (Debug Mode?) then (yes)
+    :Save Debug Image;
+    note right
+    Filename includes:
+    • Crop parameters
+    • Filter status (fragments_removed_smart vs none)
+    • Enclosed area detection status
+    end note
+  else (no)
+  endif
+}
+
+:All Digits Processed;
+
+:Return Digit Vector;
+note right: _digits vector with processed images
+
+:=== FEATURE SUMMARY ===;
+note left
+**Smart Fragment Filtering:**
+✅ Configurable spacing/size analysis
+✅ AOI prediction for 7th digit
+✅ Morphological operations
+✅ YML configuration
+
+**Enclosed Area Detection:**
+✅ Intelligent hole recognition
+✅ Structure-based classification
+✅ Configurable sensitivity
+✅ Optional activation/deactivation
+
+**Combined Intelligence:**
+✅ Best of both algorithms
+✅ Robust digit recognition
+✅ Excellent fragment filtering
+✅ Adaptable to various scenarios
+end note
+
+stop
+
+@enduml

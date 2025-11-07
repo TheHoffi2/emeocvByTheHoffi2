@@ -1,0 +1,330 @@
+@startuml option_P_complete_flow
+!theme cerulean-outline
+title Complete Flow Diagram - Option -P (Perspective Correction)\nHomography-Based Perspective Distortion Correction
+skinparam defaultFontName Consolas
+skinparam defaultFontSize 11
+skinparam activity {
+  FontColor Black
+  BorderColor DarkBlue
+  BackgroundColor LightCyan
+}
+skinparam note {
+  FontSize 10
+  BackgroundColor Wheat
+}
+
+start
+
+:=== INPUT PROCESSING ===;
+:Read Input Image;
+note right: Original image from camera/file
+
+:Convert to Grayscale;
+note right: cv::cvtColor(CV_BGR2GRAY)
+
+:=== PERSPECTIVE CORRECTION ACTIVATION ===;
+if (Option -P enabled?) then (yes)
+  if (perspectiveCorrection config enabled?) then (yes)
+    :Enable Perspective Correction;
+    note right
+    **Configuration Check:**
+    • perspectiveCorrection: 1 (enabled)
+    • Process before rotation/skew correction
+    end note
+  else (no)
+    :Skip Perspective Correction;
+    note right: Config disabled despite -P option
+  endif
+else (no)
+  :Skip Perspective Correction;
+endif
+
+:=== CORNER DETECTION PHASE ===;
+if (Perspective correction enabled?) then (yes)
+  :Generate Canny Edges for Corner Detection;
+  note right
+  **Edge Detection Parameters:**
+  • cannyThreshold1: 150
+  • cannyThreshold2: 300
+  • Used for contour-based corner detection
+  end note
+  
+  :Find All Contours;
+  note right
+  cv::findContours()
+  • RETR_EXTERNAL mode
+  • CHAIN_APPROX_SIMPLE
+  • Analyze image structure
+  end note
+  
+  :=== METER FRAME DETECTION ===;
+  :Calculate Image Area Reference;
+  note right
+  imageArea = width × height
+  Used for relative size filtering
+  end note
+  
+  :Filter Large Contours;
+  note right
+  **Size Criteria:**
+  • Minimum area: 0.5% of image
+  • Collect all reasonably sized contours
+  • Sort by area (largest first)
+  end note
+  
+  :Analyze Top 5 Largest Contours;
+  note right
+  **Selection Process:**
+  1. Check area percentage (>10% preferred)
+  2. Width ratio >50% of image
+  3. Height ratio >30% of image
+  4. Evaluate as potential meter frame
+  end note
+  
+  :=== CORNER SELECTION STRATEGY ===;
+  partition "Primary Strategy: Large Contour Bounding Box" {
+    if (Suitable large contour found?) then (yes)
+      :Use Bounding Rectangle;
+      note right
+      **Strict Criteria:**
+      • Area >10% of image
+      • Width >50% of image width
+      • Height >30% of image height
+      • Create 4-corner rectangle from bounds
+      end note
+    else (no)
+      :Try Fallback Criteria;
+      note right
+      **Relaxed Criteria:**
+      • Area >8% of image
+      • Width >45% of image width
+      • Use largest available contour
+      end note
+    endif
+  }
+  
+  partition "Fallback Strategy: Image Corner Inset" {
+    if (No suitable contour found?) then (yes)
+      :Use Image Corners with Inset;
+      note right
+      **Safe Fallback:**
+      • 5% inset from image edges
+      • Guaranteed 4 corners
+      • Prevents processing failures
+      • Conservative approach
+      end note
+    endif
+  }
+  
+  :Sort and Order Corners;
+  note right
+  **Corner Ordering:**
+  • Sort by Y-coordinate (top first)
+  • Within same Y: sort by X-coordinate
+  • Result: top-left, top-right, bottom-right, bottom-left
+  end note
+  
+else (no)
+  :Continue Without Perspective Correction;
+endif
+
+:=== HOMOGRAPHY CALCULATION ===;
+if (4 corners detected?) then (yes)
+  :Define Target Rectangle;
+  note right
+  **Target Coordinates:**
+  • (0, 0) - top-left
+  • (width-1, 0) - top-right
+  • (width-1, height-1) - bottom-right
+  • (0, height-1) - bottom-left
+  • Maintains original aspect ratio
+  end note
+  
+  :Calculate Homography Matrix;
+  note right
+  **OpenCV Function:**
+  cv::getPerspectiveTransform(srcCorners, dstCorners)
+  • Maps detected corners to rectangle
+  • Handles perspective distortion
+  • Accounts for camera angle
+  end note
+  
+  :Calculate Scaling Factors;
+  note right
+  **Perspective Scaling:**
+  • originalBounds = boundingRect(srcCorners)
+  • perspectiveScaleX = targetWidth / originalBounds.width
+  • perspectiveScaleY = targetHeight / originalBounds.height
+  • Used for parameter adjustment later
+  end note
+  
+  :=== IMAGE TRANSFORMATION ===;
+  :Apply Perspective Warp;
+  note right
+  **Transformation Process:**
+  cv::warpPerspective(imgGray, corrected, homography, size)
+  • Transform grayscale image
+  • Also transform color image if debug enabled
+  • Maintains image dimensions
+  end note
+  
+  :Update Image References;
+  note right
+  **State Updates:**
+  • _imgGray = corrected image
+  • _perspectiveCorrectionApplied = true
+  • Store scaling factors for later use
+  end note
+  
+  :Log Transformation Success;
+  note right
+  **Success Metrics:**
+  • Scaling factors (X, Y)
+  • Original vs corrected dimensions
+  • Transformation method: homography
+  • Corner count confirmation
+  end note
+  
+else (no)
+  :Log Corner Detection Failure;
+  note right
+  **Warning Output:**
+  • Number of corners found
+  • Insufficient corner detection
+  • Continue without correction
+  end note
+endif
+
+:=== DEBUG OUTPUT GENERATION ===;
+if (Test mode enabled?) then (yes)
+  :Save Perspective Corrected Image;
+  note right
+  **Debug Parameters:**
+  • method: "homography"
+  • corners: number detected
+  • Filename: ImageProcessor_perspective_corrected_*
+  • Visual verification of correction
+  end note
+endif
+
+:=== PARAMETER SCALING ADJUSTMENT ===;
+if (Perspective correction applied?) then (yes)
+  :Adjust Y-Alignment Parameters;
+  note right
+  **Enhanced Tolerance:**
+  • scaledYAlignment = digitYAlignment × perspectiveScaleY × 1.5
+  • 50% more tolerance after perspective correction
+  • Accounts for potential distortion artifacts
+  end note
+  
+  :Adjust Height Tolerance;
+  note right
+  **Height Parameters:**
+  • scaledHeightTolerance = 10 × perspectiveScaleY × 2
+  • Double the height tolerance
+  • Compensates for perspective effects
+  end note
+  
+  :Scale Dimension Filters;
+  note right
+  **Dimension Scaling:**
+  • scaledMinHeight = digitMinHeight × perspectiveScaleY
+  • scaledMaxHeight = digitMaxHeight × perspectiveScaleY × perspectiveHeightTolerance
+  • scaledMinWidth = digitMinWidth × perspectiveScaleX
+  • All detection parameters adjusted
+  end note
+  
+else (no)
+  :Use Standard Parameters;
+  note right: No scaling adjustment needed
+endif
+
+:=== CONTINUED PROCESSING ===;
+:Apply Rotation & Skew Correction;
+note right
+**Post-Perspective Processing:**
+• More accurate after perspective correction
+• Better line detection
+• Improved angle calculation
+end note
+
+:Generate Canny Edges;
+note right
+**Enhanced Edge Quality:**
+• Cleaner edge detection on corrected image
+• More consistent digit boundaries
+• Reduced perspective artifacts
+end note
+
+:Find & Filter Contours;
+note right
+**Improved Contour Detection:**
+• Better digit boundary detection
+• More accurate bounding rectangles
+• Consistent digit shapes
+• Scaled parameter filtering
+end note
+
+:=== DIGIT RECOGNITION ENHANCEMENT ===;
+:Extract Digit Regions;
+note right
+**Perspective Benefits:**
+• Frontal view digit appearance
+• Consistent digit proportions
+• Reduced perspective distortion
+• Better aspect ratio preservation
+end note
+
+:Apply OCR Recognition;
+note right
+**Recognition Improvements:**
+• Higher accuracy due to normalized view
+• More consistent character shapes
+• Reduced geometric distortion
+• Better training data matching
+end note
+
+:=== QUALITY VALIDATION ===;
+:Evaluate Correction Quality;
+note right
+**Quality Indicators:**
+• Corner detection confidence
+• Transformation matrix stability
+• Scaling factor reasonableness
+• Recognition accuracy improvement
+end note
+
+if (Perspective correction successful?) then (yes)
+  :Output Enhanced Results;
+  note right
+  **Correction Benefits:**
+  • Improved digit recognition accuracy
+  • Consistent performance across angles
+  • Better handling of mounted cameras
+  • Reduced manual camera adjustment
+  end note
+else (no)
+  :Flag Correction Issues;
+  note right
+  **Potential Issues:**
+  • Insufficient corner detection
+  • Unstable transformation matrix
+  • Excessive distortion correction
+  • Require manual review
+  end note
+endif
+
+:=== PERFORMANCE LOGGING ===;
+:Log Perspective Correction Data;
+note right
+**Performance Metrics:**
+• Corner detection success rate
+• Scaling factors applied
+• Processing time impact
+• Recognition accuracy delta
+• Transformation stability
+end note
+
+stop
+
+@enduml

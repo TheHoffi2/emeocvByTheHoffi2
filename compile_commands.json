@@ -1,0 +1,17 @@
+[
+    {
+        "directory": "/home/hoffi/W-Seminar/emeocv",
+        "command": "g++ -Wno-write-strings -I . `pkg-config opencv4 --cflags` -g -D _DEBUG -c ImageInput.cpp -o Debug/ImageInput.o",
+        "file": "/home/hoffi/W-Seminar/emeocv/ImageInput.cpp"
+    },
+    {
+        "directory": "/home/hoffi/W-Seminar/emeocv",
+        "command": "g++ -Wno-write-strings -I . `pkg-config opencv4 --cflags` -g -D _DEBUG -c main.cpp -o Debug/main.o",
+        "file": "/home/hoffi/W-Seminar/emeocv/main.cpp"
+    },
+    {
+        "directory": "/home/hoffi/W-Seminar/emeocv",
+        "command": "g++ -Wno-write-strings -I . `pkg-config opencv4 --cflags` -g -D _DEBUG -c ImageProcessor.cpp -o Debug/ImageProcessor.o",
+        "file": "/home/hoffi/W-Seminar/emeocv/ImageProcessor.cpp"
+    }
+]
