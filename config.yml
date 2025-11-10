@@ -14,7 +14,7 @@ cropPercentHorizontalAOI: 0.15
 cropPercentVerticalAOI: 0.02
 morphKernelSizeDivisor: 15
 morphIterations: 1
-morphSizeRatioThreshold: 0.4
+morphSizeRatioThreshold: 0.2
 smartSpacingTolerance: 0.5
 smartSizeTolerance: 0.3
 digitMinWidth: 5

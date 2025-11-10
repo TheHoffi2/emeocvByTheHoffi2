@@ -131,6 +131,27 @@ config.saveConfig();
 - **AOI Horizontal**: 0.10 - 0.20 (10% - 20%)
 - **AOI Vertikal**: 0.01 - 0.05 (1% - 5%)
 
+## Erweiterte 3-Löcher-Analyse (NEU)
+
+Die neue 3-Löcher-Analyse verbessert die Erkennung komplexer Ziffern, insbesondere der Ziffer 8:
+
+### Funktionsweise
+1. **Sortierung**: Alle Konturen werden nach Größe sortiert (absteigend)
+2. **3-Stufen-Klassifikation**:
+   - **3-Löcher-Struktur**: 2. und 3. Kontur ≥ 20% der größten → Ziffer 8 erkannt
+   - **2-Löcher-Struktur**: Nur 2. Kontur ≥ 20% → Ziffern 0, 6, 9 
+   - **1-Löcher-Struktur**: Fallback auf Enclosed Area Detection
+
+### Konfiguration
+```yaml
+morphSizeRatioThreshold: 0.2    # 20% Schwellwert für 2. und 3. Kontur
+```
+
+### Vorteile
+- **Bessere Ziffer-8-Erkennung**: Drei separate Bereiche werden korrekt identifiziert
+- **Robuste Filterung**: Fragmente werden zuverlässiger entfernt
+- **Segment-Display-Kompatibilität**: Funktioniert mit digitalen Stromzählern
+
 ## Morphologische Filter-Parameter
 
 Die Option `-C` verwendet auch konfigurierbare morphologische Operationen zur Fragment-Filterung:
@@ -144,28 +165,32 @@ Die Option `-C` verwendet auch konfigurierbare morphologische Operationen zur Fr
 - **morphIterations**: Anzahl Dilatation/Erosion Iterationen (Standard: 1) 
   - Höhere Werte = stärkere morphologische Effekte
   
-- **morphSizeRatioThreshold**: Schwellwert für ähnlich große Konturen (Standard: 0.4)
-  - Verhältnis zweitgrößte/größte Kontur für Ziffern mit Löchern (0, 6, 8, 9)
+- **morphSizeRatioThreshold**: Schwellwert für 3-Löcher-Analyse (Standard: 0.2)
+  - Verhältnis zweit-/drittgrößte Kontur zur größten für komplexe Ziffern (0, 6, 8, 9)
+  - **NEU**: Analysiert nun drei Konturen statt zwei für bessere Ziffer-8-Erkennung
 
-### Funktionsweise
+### Funktionsweise (Erweiterte 3-Löcher-Analyse)
 
 1. **Dilatation**: Verdickt Kanten um nahe Fragmente zu verbinden
-2. **Konturenanalyse**: Findet alle verbundenen Komponenten  
-3. **Intelligente Filterung**: Behält Hauptstruktur, entfernt kleine Fragmente
+2. **Konturenanalyse**: Findet alle verbundenen Komponenten nach Größe sortiert
+3. **3-Stufen-Klassifikation**: 
+   - **3 große Konturen** (≥20%): Ziffer 8 oder komplexe Struktur → Alle behalten
+   - **2 große Konturen** (≥20%): Ziffer 0, 6, 9 → Zwei größte behalten  
+   - **1 große Kontur**: Einfache Ziffer oder Fragmente → Intelligente Filterung
 4. **Erosion**: Stellt ursprüngliche Kantenstärke wieder her
 
 ### Konfiguration in config.yml
 ```yaml
 morphKernelSizeDivisor: 12        # Größere Kernel (weniger konservativ)
 morphIterations: 2                # Stärkere morphologische Effekte  
-morphSizeRatioThreshold: 0.3      # Weniger tolerant bei ähnlichen Konturen
+morphSizeRatioThreshold: 0.2      # Optimiert für 3-Löcher-Analyse bei Ziffer 8
 ```
 
 ### Empfohlene Werte
 
 - **morphKernelSizeDivisor**: 10-20 (Standard: 15)
 - **morphIterations**: 1-3 (Standard: 1)
-- **morphSizeRatioThreshold**: 0.2-0.6 (Standard: 0.4)
+- **morphSizeRatioThreshold**: 0.1-0.4 (Standard: 0.2) - **NEU**: Optimiert für 3-Löcher-Analyse
 
 ## Kontur-Filter Parameter (-C Option)
 

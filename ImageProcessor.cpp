@@ -409,23 +409,27 @@ cv::Mat ImageProcessor::filterFragments(const cv::Mat& digitImage) {
         }
     }
     
-    // Find largest and second largest areas
-    double maxArea = 0;
-    double secondMaxArea = 0;
-    int maxAreaIdx = 0;
-    
+    // Find three largest areas for improved 8-digit detection
+    std::vector<std::pair<double, int>> areaIndexPairs;
     for (size_t i = 0; i < areas.size(); i++) {
-        if (areas[i] > maxArea) {
-            secondMaxArea = maxArea;
-            maxArea = areas[i];
-            maxAreaIdx = i;
-        } else if (areas[i] > secondMaxArea) {
-            secondMaxArea = areas[i];
-        }
+        areaIndexPairs.push_back({areas[i], static_cast<int>(i)});
     }
     
-    // Step 4: Advanced fragment filtering with enclosed area analysis
-    double sizeRatio = (maxArea > 0) ? (secondMaxArea / maxArea) : 0;
+    // Sort by area (descending)
+    std::sort(areaIndexPairs.begin(), areaIndexPairs.end(), 
+              [](const std::pair<double, int>& a, const std::pair<double, int>& b) {
+                  return a.first > b.first;
+              });
+    
+    // Extract the three largest
+    double maxArea = areaIndexPairs.empty() ? 0 : areaIndexPairs[0].first;
+    double secondMaxArea = (areaIndexPairs.size() > 1) ? areaIndexPairs[1].first : 0;
+    double thirdMaxArea = (areaIndexPairs.size() > 2) ? areaIndexPairs[2].first : 0;
+    int maxAreaIdx = areaIndexPairs.empty() ? 0 : areaIndexPairs[0].second;
+    
+    // Step 4: Advanced 3-hole fragment filtering with enclosed area analysis
+    double secondRatio = (maxArea > 0) ? (secondMaxArea / maxArea) : 0;
+    double thirdRatio = (maxArea > 0) ? (thirdMaxArea / maxArea) : 0;
     
     // Filter contours based on enclosed area detection (if enabled) or size-based fallback
     std::vector<int> validContourIndices;
@@ -461,12 +465,32 @@ cv::Mat ImageProcessor::filterFragments(const cv::Mat& digitImage) {
         validContourIndices.push_back(maxAreaIdx);
     }
     
-    // Check if we have similarly sized valid contours
-    if (validContourIndices.size() > 1 && sizeRatio > _config.getMorphSizeRatioThreshold()) {
-        // Multiple valid contours with similar sizes - likely digit with complex structure (0, 6, 8, 9)
-        // Keep all valid contours, just apply erosion to restore thickness
+    // Enhanced 3-hole analysis for better digit 8 detection
+    if (secondRatio >= _config.getMorphSizeRatioThreshold() && 
+        thirdRatio >= _config.getMorphSizeRatioThreshold()) {
+        
+        // Three-hole structure detected (likely digit 8 or complex structure)
+        // Keep all three largest contours, just apply erosion to restore thickness
         cv::Mat preservedResult;
         cv::erode(dilated, preservedResult, kernel, cv::Point(-1,-1), _config.getMorphIterations());
+        
+        if (_debugDigits) {
+            std::cout << "Three-hole structure: Areas(" << maxArea << ", " << secondMaxArea << ", " << thirdMaxArea 
+                      << ") Ratios(" << secondRatio << ", " << thirdRatio << ")" << std::endl;
+        }
+        return preservedResult;
+        
+    } else if (validContourIndices.size() > 1 && secondRatio > _config.getMorphSizeRatioThreshold()) {
+        
+        // Two-hole structure detected (likely digit 0, 6, 9 or damaged structure)
+        // Keep valid contours, just apply erosion to restore thickness
+        cv::Mat preservedResult;
+        cv::erode(dilated, preservedResult, kernel, cv::Point(-1,-1), _config.getMorphIterations());
+        
+        if (_debugDigits) {
+            std::cout << "Two-hole structure: Areas(" << maxArea << ", " << secondMaxArea 
+                      << ") Ratio(" << secondRatio << ")" << std::endl;
+        }
         return preservedResult;
     }
     

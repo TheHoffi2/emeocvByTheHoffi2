@@ -152,25 +152,40 @@ partition "For each detected digit" {
         end note
       endif
       
-      :Find Largest and 2nd Largest Areas;
-      
-      :Check Size Ratio;
+      :Find Three Largest Areas;
       note right
-      sizeRatio = secondMaxArea / maxArea
-      Compare with **morphSizeRatioThreshold (0.4)**
+      **Enhanced 3-Hole Analysis:**
+      Sort all contours by area (descending)
+      Extract: maxArea, secondMaxArea, thirdMaxArea
       end note
       
-      if (Multiple valid contours with similar sizes?) then (yes)
-        :Keep All Valid Contours;
+      :Calculate Size Ratios;
+      note right
+      secondRatio = secondMaxArea / maxArea
+      thirdRatio = thirdMaxArea / maxArea
+      Compare with **morphSizeRatioThreshold (0.2)**
+      end note
+      
+      if (3rd ratio ≥ 20% AND 2nd ratio ≥ 20%?) then (yes)
+        :Three-Hole Structure Detected;
         note right
-        Handle complex digits (0, 6, 8, 9)
-        Apply erosion to all contours
+        **Digit 8 or complex structure**
+        Keep all three largest contours
+        Apply erosion to restore thickness
+        end note
+      elseif (2nd ratio ≥ 20%?) then (yes)
+        :Two-Hole Structure Detected;
+        note right
+        **Digits 0, 6, 9 or damaged structure**
+        Keep valid contours
+        Apply erosion to restore thickness
         end note
       else (no)
         :Create Mask with Valid Contours;
         note right
+        **Single structure or small fragments**
+        Apply intelligent filtering
         Draw selected contours to mask
-        Apply mask to dilated image
         end note
       endif
       
@@ -213,6 +228,12 @@ note left
 ✅ Morphological operations
 ✅ YML configuration
 
+**Enhanced 3-Hole Analysis:**
+✅ Improved digit 8 detection
+✅ Three-level structure classification
+✅ 20% threshold for better sensitivity
+✅ Separate handling for 1/2/3 hole structures
+
 **Enclosed Area Detection:**
 ✅ Intelligent hole recognition
 ✅ Structure-based classification
@@ -223,7 +244,7 @@ note left
 ✅ Best of both algorithms
 ✅ Robust digit recognition
 ✅ Excellent fragment filtering
-✅ Adaptable to various scenarios
+✅ Special support for complex digits (8)
 end note
 
 stop

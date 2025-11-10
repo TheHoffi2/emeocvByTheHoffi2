@@ -199,7 +199,7 @@ private:
     // Morphological operation parameters for fragment filtering
     int _morphKernelSizeDivisor = 15;          // Kernel size = min(width,height) / divisor (default 15)
     int _morphIterations = 1;                  // Number of dilation/erosion iterations (default 1)
-    double _morphSizeRatioThreshold = 0.4;     // Threshold for similar-sized contours (default 0.4)
+    double _morphSizeRatioThreshold = 0.2;     // Threshold for similar-sized contours (default 0.2 for 3-hole analysis)
     
     // Smart fragment filtering parameters for -C option
     double _smartSpacingTolerance = 0.5;       // Spacing variance tolerance (50% of average spacing)
